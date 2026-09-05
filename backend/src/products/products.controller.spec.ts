@@ -1,7 +1,3 @@
-// GET /stores/:storeId/products
-// → calls productsService.getProducts(storeId)
-// → returns its result
-
 import { Test, TestingModule } from "@nestjs/testing";
 import { ProductsController } from "./products.controller.js";
 import { ProductsService } from "./products.service.js";
@@ -49,7 +45,12 @@ describe("ProductsController", () => {
 
         expect(result).toEqual(mockProducts);
 
-        expect(productsServiceMock.getProducts).toHaveBeenCalledWith(1);
+        expect(productsServiceMock.getProducts).toHaveBeenCalledWith(1, {
+            limit: 20,
+            offset: 0,
+            status: undefined,
+        });
+
         expect(productsServiceMock.getProducts).toHaveBeenCalledTimes(1);
     });
 });
