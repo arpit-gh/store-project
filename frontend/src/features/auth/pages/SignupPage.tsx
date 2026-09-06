@@ -1,17 +1,23 @@
-import { useState } from "react";
 import { passwordRules } from "../lib/passwordRules";
-
-type SignupStep = "details" | "password" | "otp";
+import { useAuthStore } from "../../../store/authStore";
 
 export function SignupPage() {
-  const [step, setStep] = useState<SignupStep>("details");
-  const [name, setName] = useState("");
-  const [organisationName, setOrganisationName] = useState("");
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [otp, setOtp] = useState("");
-
-  const isPasswordStrong = passwordRules.every(({ test }) => test(password));
+  const {
+    signupStep: step,
+    name,
+    organisationName,
+    signupEmail: email,
+    signupPassword: password,
+    otp,
+    isPasswordStrong,
+    setSignupStep: setStep,
+    setName,
+    setOrganisationName,
+    setSignupEmail: setEmail,
+    setSignupPassword: setPassword,
+    setOtp,
+    goToPreviousSignupStep,
+  } = useAuthStore();
 
   function handleDetailsSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -20,7 +26,7 @@ export function SignupPage() {
 
   function handlePasswordSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (isPasswordStrong) {
+    if (isPasswordStrong()) {
       setStep("otp");
     }
   }
@@ -30,7 +36,7 @@ export function SignupPage() {
   }
 
   function handlePrevious() {
-    setStep(step === "otp" ? "password" : "details");
+    goToPreviousSignupStep();
   }
 
   return (
@@ -159,7 +165,7 @@ export function SignupPage() {
 
             <button
               className="w-full rounded-md bg-gray-900 px-4 py-3 text-sm font-medium text-white transition hover:bg-gray-400 hover:text-gray-900 focus:outline-none focus:ring-2 focus:ring-gray-400 focus:ring-offset-2 disabled:cursor-not-allowed disabled:bg-gray-400"
-              disabled={!isPasswordStrong}
+              disabled={!isPasswordStrong()}
               type="submit"
             >
               Continue

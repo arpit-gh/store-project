@@ -1,4 +1,9 @@
+import { useAuthStore } from "../../../store/authStore";
+
 export function LoginPage() {
+  const { loginEmail, loginPassword, setLoginEmail, setLoginPassword } =
+    useAuthStore();
+
   return (
     <main className="flex min-h-screen items-center justify-center bg-white px-6 py-12 text-gray-900">
       <section className="w-full max-w-md">
@@ -23,9 +28,11 @@ export function LoginPage() {
               className="w-full rounded-md border border-gray-400 bg-white px-4 py-3 text-gray-900 outline-none transition placeholder:text-gray-400 focus:border-gray-900"
               id="email"
               name="email"
+              onChange={(event) => setLoginEmail(event.target.value)}
               placeholder="you@example.com"
               required
               type="email"
+              value={loginEmail}
             />
           </div>
 
@@ -45,9 +52,11 @@ export function LoginPage() {
               className="w-full rounded-md border border-gray-400 bg-white px-4 py-3 text-gray-900 outline-none transition placeholder:text-gray-400 focus:border-gray-900"
               id="password"
               name="password"
+              onChange={(event) => setLoginPassword(event.target.value)}
               placeholder="Enter your password"
               required
               type="password"
+              value={loginPassword}
             />
           </div>
 
