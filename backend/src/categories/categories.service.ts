@@ -43,7 +43,7 @@ export class CategoriesService {
 
         const normalizedSlug = input.slug.trim().toLowerCase();
 
-        const existingSlug = await this.categoriesRepository.findCategorySlug(storeId, normalizedSlug);
+        const existingSlug = await this.categoriesRepository.findCategoryBySlug(storeId, normalizedSlug);
         if (existingSlug) {
             throw new BadRequestException("Slug already exists in this store");
         }
@@ -70,12 +70,14 @@ export class CategoriesService {
         }
 
         let normalizedSlug = category.slug;
+
         if (input.slug) {
             normalizedSlug = input.slug.trim().toLowerCase();
 
             if (normalizedSlug !== category.slug) {
-                const existingSlug = await this.categoriesRepository.findCategorySlug(storeId, normalizedSlug);
-                if (existingSlug && existingSlug.id !== categoryId) {
+                const isTaken = await this.categoriesRepository.findCategoryBySlug(storeId, normalizedSlug);
+                
+                if (isTaken) {
                     throw new BadRequestException("Slug already exists in this store");
                 }
             }

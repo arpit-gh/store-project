@@ -36,7 +36,7 @@ export class CategoriesRepository {
         });
     }
 
-    async findCategorySlug(storeId: number, slug: string) {
+    async findCategoryBySlug(storeId: number, slug: string) {
         return this.prisma.category.findFirst({
             where: {
                 storeId,
