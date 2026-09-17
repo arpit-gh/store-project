@@ -58,8 +58,7 @@ export class CartsService {
         if(product.status !== ProductStatus.ACTIVE){
             throw new BadRequestException("Product is not active.")
         }
-        // 3. Check existing cartItem (findCartItem) to calculate total desired quantity:
-        //    desiredQuantity = (existingItem?.quantity ?? 0) + input.quantity
+
         let cart = await this.cartsRepository.findCartByCustomer(storeId, customerId)
         if(!cart){
             await this.cartsRepository.createCart(storeId, customerId)
@@ -69,39 +68,55 @@ export class CartsService {
         const existingItem = await this.cartsRepository.findCartItem(cart!.id, input.productId)
 
         const desiredQuantity = (existingItem?.quantity ?? 0 ) + input.quantity
-        // 4. Stock check: availableStock = product.inventories?.stockCount ?? 0
-        //    If desiredQuantity > availableStock -> 400 "Insufficient stock"
 
         const availableStock = product.inventories?.stockCount ?? 0
         if(desiredQuantity > availableStock){
-            throw new BadRequestException("Insufficient stock.")
+            throw new BadRequestException(`Insufficient stock, only ${availableStock} remaining.`)
         }
 
-        
-        // 5. If item exists: updateCartItemQuantity
-        //    If item is new: createCartItem with unitPrice = Number(product.price)
-        // 6. Return refreshed cart with totals
+        if(existingItem){
+            await this.cartsRepository.updateCartItemQuantity(existingItem.id, desiredQuantity)
+        }else{
+            await this.cartsRepository.createCartItem(cart!.id, input.productId, input.quantity, Number(product.price))
+        }
+
+        return await this.getOrCreateCart(storeId, customerId)
     }
 
     async updateItemQuantity(storeId: number, customerId: number, cartItemId: number, quantity: number) {
-        // TODO: Challenge 2 for user:
-        // 1. Fetch cart item via findCartItemById(cartItemId) (404 if not found)
-        // 2. Multi-tenant Cart Ownership check:
-        //    Verify cartItem.cart.storeId === storeId AND cartItem.cart.customerId === customerId (403/404)
-        // 3. If quantity <= 0: deleteCartItem and return refreshed cart
-        // 4. If quantity > 0:
-        //    - Check stock: availableStock = cartItem.product.inventories?.stockCount ?? 0
-        //    - If quantity > availableStock -> 400 "Insufficient stock"
-        //    - Update quantity
-        // 5. Return refreshed cart with totals
+        const item = await this.cartsRepository.findCartItemById(cartItemId)
+        if(!item){
+            throw new NotFoundException("Item not found.")
+        }
+        if(item.cart.storeId !== storeId || item.cart.customerId !== customerId){
+            throw new ForbiddenException("You don't have permission to update this cart item.")
+        }
+
+        if(quantity <= 0){
+            await this.cartsRepository.deleteCartItem(cartItemId)
+            return await this.getOrCreateCart(storeId, customerId)
+        }
+        
+        const availableStock = item.product.inventories?.stockCount ?? 0
+        if(quantity > availableStock){
+            throw new BadRequestException(`Insufficient stock, only ${availableStock} remaining.`)
+        }
+
+        await this.cartsRepository.updateCartItemQuantity(cartItemId, quantity)
+
+        return await this.getOrCreateCart(storeId, customerId)
     }
 
     async removeItem(storeId: number, customerId: number, cartItemId: number) {
-        // TODO: Challenge 3 for user:
-        // 1. Fetch cart item via findCartItemById(cartItemId) (404)
-        // 2. Verify ownership (storeId & customerId match)
-        // 3. Delete cart item
-        // 4. Return refreshed cart with totals
+        const item = await this.cartsRepository.findCartItemById(cartItemId)
+        if(!item){
+            throw new NotFoundException("Item not found.")
+        }
+        if(item.cart.storeId !== storeId || item.cart.customerId !== customerId){
+            throw new ForbiddenException("You don't have permission to remove this cart item.")
+        }
+        await this.cartsRepository.deleteCartItem(cartItemId)
+        return await this.getOrCreateCart(storeId, customerId)
     }
 
     async clearCart(storeId: number, customerId: number) {

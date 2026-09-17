@@ -5,7 +5,7 @@ import { CartsService, type AddCartItemInput, type UpdateCartItemInput } from ".
 export class CartsController {
     constructor(private readonly cartsService: CartsService) {}
 
-    // Get active cart with items and calculated totals
+    // Get active cart
     @Get()
     getCart(
         @Param("storeId") storeId: string,

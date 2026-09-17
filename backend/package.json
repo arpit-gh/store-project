@@ -7,7 +7,7 @@
         "test": "vitest run",
         "test:watch": "vitest",
         "test:cov": "vitest run --coverage",
-        "dev": "tsx watch src/main.ts",
+        "dev": "nest start --watch",
         "build": "tsc",
         "start": "node dist/src/main.js",
         "seed": "tsx prisma/seed.ts"
