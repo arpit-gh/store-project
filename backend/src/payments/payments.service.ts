@@ -54,22 +54,73 @@ export class PaymentsService {
         return await this.paymentsRepository.findPaymentsByOrder(orderId);
     }
 
-    // =========================================================================
-    // Core Decision-Heavy Business Logic: To Be Hand-Written By You!
-    // =========================================================================
     async processPayment(
         storeId: number,
         customerId: number,
         input: ProcessPaymentInput,
     ) {
-        // Step 1: Fetch order & verify customer ownership
-        // Step 2: Guard against paying for an already confirmed order (or cancelled)
-        // Step 3: Guard that input.amount matches order.totalAmount
-        // Step 4: Delegate charge to this.gateway.charge(...)
-        // Step 5: Inside an atomic this.paymentsRepository.client.$transaction:
-        //         - Record payment with status SUCCEEDED / FAILED
-        //         - If SUCCEEDED: Update order status to CONFIRMED
-        // Step 6: Return payment and updated status
-        throw new Error("Not implemented yet");
+        const order = await this.paymentsRepository.findOrderById(storeId, input.orderId)
+
+        if(!order ){
+            throw new NotFoundException("Invalid order")
+        }
+
+        if(order.customerId !== customerId){
+            throw new BadRequestException("Not authorized to pay for this order")
+        }
+
+        if(order.status !== OrderStatus.PENDING){
+            throw new ForbiddenException("Can't pay for order now")
+        } 
+
+        if (Number(input.amount) !== Number(order.totalAmount)) {
+            throw new BadRequestException("Order amount doesn't match");
+        }
+
+        const res = await this.gateway.charge({
+            orderId: order.id,
+            amount: input.amount,
+            currency: input.currency ?? order.currency,
+            method: input.method,
+            metadata: {
+                storeId,
+                customerId,
+                orderId: order.id,
+            },
+        });
+
+        
+        return await this.paymentsRepository.client.$transaction(async (tx) => {
+            const payment = await tx.payment.create({
+                data: {
+                    orderId: order.id,
+                    provider: res.provider,
+                    providerPaymentId: res.providerPaymentId ?? null,
+                    amount: input.amount,
+                    currency: input.currency ?? order.currency,
+                    method: input.method,
+                    status: res.success ? PaymentStatus.SUCCEEDED : PaymentStatus.FAILED,
+                },
+            });
+
+            if (res.success) {
+                await tx.order.update({
+                    where: { id: order.id },
+                    data: {
+                        status: OrderStatus.CONFIRMED,
+                    },
+                });
+            }
+
+           
+            return {
+                payment,
+                orderStatus: res.success ? OrderStatus.CONFIRMED : order.status,
+                success: res.success,
+                failureReason: res.failureReason,
+            };
+        });
+
+        
     }
 }
