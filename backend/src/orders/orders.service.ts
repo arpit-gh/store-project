@@ -89,8 +89,6 @@ export class OrdersService {
 
         const cartItems = cart.cartItems;
         
-
-        
         return await this.ordersRepository.client.$transaction(async(tx) => {
             for(const cartItem of cartItems) {
                 if(cartItem.product.status !== ProductStatus.ACTIVE) {
@@ -101,15 +99,27 @@ export class OrdersService {
                     throw new BadRequestException(`Insufficient stock for product ${cartItem.product.name}`);
                 }
 
-                await tx.inventory.update({
-                    where: { productId: cartItem.productId },
-                    data: { stockCount: { decrement: cartItem.quantity } },
+                const result = await tx.inventory.updateMany({
+                    where: {
+                        productId: cartItem.productId,
+                        stockCount: { gte: cartItem.quantity },
+                    },
+                    data: {
+                        stockCount: { decrement: cartItem.quantity },
+                    },
                 });
+
+                if(result.count === 0) {
+                    throw new BadRequestException(`Insufficient stock for product ${cartItem.product.name}`);
+                }
+
             }
 
             const totalAmount = cartItems.reduce((acc, item)=>{
                 return acc + item.quantity * Number(item.unitPrice);
             }, 0);
+
+            const resolvedAddress = input.deliveryAddress ?? customer.address;
 
             const order = await tx.order.create({
                 data: {
@@ -119,7 +129,7 @@ export class OrdersService {
                         fulfillmentType: input.fulfillmentType,
                         totalAmount,
                         currency: cart.cartItems[0]?.product.currency ?? "INR",
-                        deliveryAddressSnapshot: input.deliveryAddress?? null,
+                        deliveryAddressSnapshot: input.fulfillmentType === FullfillmentType.DELIVERY ? resolvedAddress : null,
                         orderItems: {
                             create: cartItems.map((item) => ({
                                 productId: item.productId,
